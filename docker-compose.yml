@@ -1,0 +1,126 @@
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: smt-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qg
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  iot-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: smt-iot-gateway
+    ports:
+      - "8001:8001"
+    environment:
+      APP_NAME: smt
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  stream-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.processor
+    container_name: smt-stream-processor
+    ports:
+      - "8002:8002"
+    environment:
+      APP_NAME: smt
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPEED_LIMIT_DEFAULT: "110"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: on-failure
+
+  metrics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.metrics
+    container_name: smt-metrics-service
+    ports:
+      - "8003:8003"
+    environment:
+      APP_NAME: smt
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      POISSON_LAMBDA_DEFAULT: "800"
+      SPEED_MU_DEFAULT: "90"
+      SPEED_SIGMA_DEFAULT: "12"
+      SPEED_LIMIT_DEFAULT: "110"
+    restart: on-failure
+
+  vehicles-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.vehicles
+    container_name: smt-vehicles-service
+    ports:
+      - "8004:8004"
+    environment:
+      APP_NAME: smt
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      POISSON_LAMBDA_DEFAULT: "800"
+      SPEED_MU_DEFAULT: "90"
+      SPEED_SIGMA_DEFAULT: "12"
+      SPEED_LIMIT_DEFAULT: "110"
+    restart: on-failure
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: smt-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      METRICS_SERVICE_URL: http://metrics-service:8003
+      VEHICLES_SERVICE_URL: http://vehicles-service:8004
+      IOT_GATEWAY_URL: http://iot-gateway:8001
+    depends_on:
+      - metrics-service
+      - vehicles-service
+      - iot-gateway
+    restart: on-failure
+
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.simulator
+    container_name: smt-simulator
+    environment:
+      IOT_GATEWAY_URL: http://iot-gateway:8001
+      SIMULATION_INTERVAL_SECONDS: "15"
+      POISSON_LAMBDA_DEFAULT: "800"
+      SPEED_MU_DEFAULT: "90"
+      SPEED_SIGMA_DEFAULT: "12"
+      SPEED_LIMIT_DEFAULT: "110"
+    depends_on:
+      - iot-gateway
+    restart: on-failure
