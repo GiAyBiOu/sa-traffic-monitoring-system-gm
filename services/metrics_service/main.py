@@ -91,12 +91,6 @@ async def get_metrics(location_id: str = Query(None), city: str = Query(None), l
     return build_response({"metrics": results[-limit:], "total": len(results)})
 
 
-@app.get("/api/v1/metrics/{location_id}")
-async def get_location_metrics(location_id: str):
-    results = [m for m in metrics_cache if m["location_id"] == location_id]
-    return build_response({"location_id": location_id, "metrics": results, "total": len(results)})
-
-
 @app.get("/api/v1/metrics/summary")
 async def get_summary():
     if not metrics_cache:
@@ -116,6 +110,12 @@ async def get_summary():
             "data_points": len(metrics_cache),
         }
     })
+
+
+@app.get("/api/v1/metrics/{location_id}")
+async def get_location_metrics(location_id: str):
+    results = [m for m in metrics_cache if m["location_id"] == location_id]
+    return build_response({"location_id": location_id, "metrics": results, "total": len(results)})
 
 
 @app.get("/api/v1/locations")
