@@ -103,11 +103,14 @@ services:
       METRICS_SERVICE_URL: http://metrics-service:8003
       VEHICLES_SERVICE_URL: http://vehicles-service:8004
       IOT_GATEWAY_URL: http://iot-gateway:8001
+      STREAM_PROCESSOR_URL: http://stream-processor:8002
     depends_on:
       - metrics-service
       - vehicles-service
       - iot-gateway
+      - stream-processor
     restart: on-failure
+
 
   simulator:
     build:

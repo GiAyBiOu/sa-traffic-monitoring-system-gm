@@ -5,6 +5,7 @@ WORKDIR /app
 COPY requirements-dashboard.txt .
 RUN pip install --no-cache-dir -r requirements-dashboard.txt
 
+COPY shared/ ./shared/
 COPY services/dashboard/ ./services/dashboard/
 
 EXPOSE 8501
